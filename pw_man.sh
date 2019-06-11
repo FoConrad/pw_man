@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 # Configurable options
-RSA_BITS=4096
+XCLIP_SELECTION="clipboard"
 
 # Must have options to:
 #   - Exit on command error
 #   - Exit on unset variable usage
 #   - Essentially bash -e, print commands
-set -o errexit
-set -o nounset
+#set -o errexit
+#set -o nounset
 #set -o xtrace
 
 
@@ -17,27 +17,24 @@ ID="default"
 CONFIG_DIR="${HOME}/.pw_man"
 CONFIG_FILE="${CONFIG_DIR}/${ID}"
 
+CLIPBOARD_COMMAND="pbcopy"
+
+resetcommand() {
+  command -v $CLIPBOARD_COMMAND
+  if [ $? -ne 0 ]; then
+    command -v xclip
+    if [ $? -ne 0 ]; then
+      echo "Error, please install xclip or pbcopy"
+      exit 3
+    else
+      CLIPBOARD_COMMAND="xclip -i -selection ${XCLIP_SELECTION}"
+    fi
+  fi
+}
 
 # Needed as id may change from default
 resetconfig() {
   CONFIG_FILE="${CONFIG_DIR}/${ID}"
-}
-
-getconfig() {
-  echo -e "Key-Type: RSA"
-  echo -e "Key-Length: ${RSA_BITS}"
-  echo -e "Subkey-Type: RSA"
-  echo -e "Subkey-Length: 2048"
-  echo -e "Name-Real: pw_man_user_${ID}"
-  echo -e "Name-Comment: pw_man_user_${ID}"
-  echo -e "Name-Email: pw_man_user_${ID}@localhost.here"
-  echo -e "Expire-Date: 0"
-  #echo -e "Passphrase: kljfhslfjkhsaljkhsdflgjkhsd"
-  echo -e "%pubring foo.pub"
-  echo -e "%secring foo.sec"
-  echo -e "# Do a commit here, so that we can later print "done" :-)"
-  echo -e "%commit"
-  echo -e "%echo done"
 }
 
 usage() {
@@ -60,6 +57,7 @@ usage() {
 }
 
 readpass() {
+  init_or_die
   local tag="$1" ; shift
   local pass=$(gpg -d "${CONFIG_FILE}.gpg" | grep -E -o "^${tag}:.*" | sed "s/${tag}://")
   echo "You have 10 seconds to use password"
@@ -73,6 +71,7 @@ readpass() {
 }
 
 setpass() {
+  init_or_die
   local tag="$1"; shift
   echo -n "Password for ${tag}:"
   read -s tag_password
@@ -91,19 +90,23 @@ setpass() {
 
 }
 
-newid() {
-  echo "Newid with args $@"
-}
-
 changepass() {
+  init_or_die
   echo "Changepass with args $@"
 }
 
-isinit() {
-  echo "isinit with args $@"
+init_or_die() {
+  resetconfig
+  resetcommand
+  if [ ! -f "${CONFIG_FILE}.gpg" ]; then
+    echo "pw_man has not been initialized for ${ID}..."
+    echo "Please run: pw_man -i ${ID} init"
+    exit 2
+  fi
 }
 
 init() {
+  resetcommand
   echo "init with args $@"
   if [ ! -d "${CONFIG_DIR}" ]; then
     mkdir "${CONFIG_DIR}"
@@ -119,6 +122,9 @@ init() {
   rm "${CONFIG_FILE}"
 }
 
+############ Main logic here ####################
+
+# Parse arguments, i.e. -h and -i <id>
 while getopts "hi:" opt; do
   case "${opt}" in
     i)
@@ -136,10 +142,10 @@ while getopts "hi:" opt; do
   esac
 done
 
+# Get rid of flag arguments, and switch on command
 shift $(expr $OPTIND - 1 )
 
 COMMAND="$1"
-
 case "$COMMAND" in
   init)
     init
