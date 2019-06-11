@@ -9,7 +9,7 @@ RSA_BITS=4096
 #   - Essentially bash -e, print commands
 set -o errexit
 set -o nounset
-set -o xtrace
+#set -o xtrace
 
 
 # Globals set in getopt
@@ -60,11 +60,35 @@ usage() {
 }
 
 readpass() {
-  echo "Readpass with args $@"
+  local tag="$1" ; shift
+  local pass=$(gpg -d "${CONFIG_FILE}.gpg" | grep -E -o "^${tag}:.*" | sed "s/${tag}://")
+  echo "You have 10 seconds to use password"
+  echo "$pass" | pbcopy
+  (
+    (
+      sleep 10
+      echo "Clipboard reset" | pbcopy
+    )&
+  )
 }
 
 setpass() {
-  echo "Setpass with args $@"
+  local tag="$1"; shift
+  echo -n "Password for ${tag}:"
+  read -s tag_password
+  echo
+  echo -n "Master password:"
+  read -s password
+  echo
+
+  echo "${password}" | gpg --batch --passphrase-fd 0 -d "${CONFIG_FILE}.gpg" > "${CONFIG_FILE}"
+  echo "${tag}:${tag_password}" >> "${CONFIG_FILE}"
+  rm "${CONFIG_FILE}.gpg"
+  echo "${password}" | gpg --batch --passphrase-fd 0 --symmetric $CONFIG_FILE
+  rm $CONFIG_FILE
+  tag_password="pass reset"
+  password="pass reset"
+
 }
 
 newid() {
@@ -85,13 +109,14 @@ init() {
     mkdir "${CONFIG_DIR}"
   fi
   resetconfig
-  if [ -f "${CONFIG_FILE}" ]; then
+  if [ -f "${CONFIG_FILE}.gpg" ]; then
     echo "File ${CONFIG_FILE} already exists!" 1>&2
     exit 1
   fi
-  touch "${CONFIG_FILE}"
 
+  touch "${CONFIG_FILE}"
   gpg --symmetric $CONFIG_FILE
+  rm "${CONFIG_FILE}"
 }
 
 while getopts "hi:" opt; do
@@ -121,7 +146,7 @@ case "$COMMAND" in
     ;;
   set)
     shift
-    setpass
+    setpass "$@"
     :
     ;;
   chpass)
