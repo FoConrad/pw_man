@@ -39,11 +39,12 @@ Remember to change `.bashrc` to match your shell's rc file.
 ```
 ~/.../pw_man$ cp pw_man.sh pw_man
 ~/.../pw_man$ chmod +x pw_man
-~/.../pw_man$ echo export PATH="${PATH}:$(pwd)" >> .bashrc
+~/.../pw_man$ echo export PATH='"${PATH}':"$(pwd)"'"' >> .bashrc
 ~/.../pw_man$ exec bash
 ```
 ### Option 2
 ```
 ~/.../pw_man$ chmod +x pw_man.sh
 ~/.../pw_man$ echo "alias pw_man=$(pwd)/pw_man.sh" >> .bashrc
+~/.../pw_man$ exec bash
 ```

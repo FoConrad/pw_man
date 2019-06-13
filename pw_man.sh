@@ -4,6 +4,7 @@
 PASSWORD_TIME=10
 XCLIP_SELECTION="clipboard"
 CONFIG_DIR="${HOME}/.pw_man"
+GPG_ARGS="--no-use-agent"
 
 # Must have options to:
 #   - Exit on command error
@@ -19,15 +20,22 @@ CONFIG_FILE="${CONFIG_DIR}/${ID}"
 
 CLIPBOARD_COMMAND="pbcopy"
 
+
+die() {
+  if [ $# -gt 0 ]; then
+    echo "$1"
+  fi
+  exit 1
+}
+
 resetcommand() {
-  command -v $CLIPBOARD_COMMAND 1>/dev/null
+  command -v pbcopy 1>/dev/null
   if [ $? -ne 0 ]; then
     command -v xclip 1>/dev/null
     if [ $? -ne 0 ]; then
-      echo "Error, please install xclip or pbcopy"
-      exit 1
+      die "Error, please install xclip or pbcopy"
     else
-      CLIPBOARD_COMMAND="xclip -i -selection ${XCLIP_SELECTION}"
+        CLIPBOARD_COMMAND="$(which xclip) -i -selection ${XCLIP_SELECTION}"
     fi
   fi
 }
@@ -35,13 +43,6 @@ resetcommand() {
 # Needed as id may change from default
 resetconfig() {
   CONFIG_FILE="${CONFIG_DIR}/${ID}"
-}
-
-die() {
-  if [ $# -gt 0 ]; then
-    echo "$1"
-  fi
-  exit 1
 }
 
 usage() {
@@ -69,17 +70,17 @@ readpass() {
 
   # local removes return code
   local pass;
-  pass="$(gpg -d ${CONFIG_FILE}.gpg)" || die "Bad password"
+  pass="$(gpg ${GPG_ARGS} -d ${CONFIG_FILE}.gpg)" || die "Bad password"
   pass=$(echo "$pass" | grep -E -o "^${tag}:.*") || die "Password not found"
   pass=$(echo "$pass" | sed "s/${tag}://")
 
 
   echo "You have ${PASSWORD_TIME} seconds to use password"
-  echo "$pass" | pbcopy
+  eval "echo $pass | ${CLIPBOARD_COMMAND}"
   (
     (
       sleep "${PASSWORD_TIME}"
-      echo "Clipboard reset" | pbcopy
+      eval "echo Clipboard reset | ${CLIPBOARD_COMMAND}"
     )&
   )
 }
@@ -96,7 +97,7 @@ setpass() {
   echo
 
   echo "${password}" | \
-    gpg --batch --passphrase-fd 0 -d "${CONFIG_FILE}.gpg" > "${CONFIG_FILE}"
+    gpg "${GPG_ARGS}" --batch --passphrase-fd 0 -d "${CONFIG_FILE}.gpg" > "${CONFIG_FILE}"
   if [ $? -ne 0 ]; then
     rm "${CONFIG_FILE}"
     die "Bad password"
@@ -104,7 +105,7 @@ setpass() {
 
   echo "${tag}:${tag_password}" >> "${CONFIG_FILE}"
   rm "${CONFIG_FILE}.gpg"
-  echo "${password}" | gpg --batch --passphrase-fd 0 --symmetric "${CONFIG_FILE}"
+  echo "${password}" | gpg "${GPG_ARGS}" --batch --passphrase-fd 0 --symmetric "${CONFIG_FILE}"
   rm "${CONFIG_FILE}"
   tag_password="pass reset"
   password="pass reset"
@@ -125,14 +126,14 @@ changepass() {
   init_or_die
   # Unencrypt password store
   echo "Enter old password..."
-  gpg -d "${CONFIG_FILE}.gpg" > "${CONFIG_FILE}" || die "Bad password"
+  gpg "${GPG_ARGS}" -d "${CONFIG_FILE}.gpg" > "${CONFIG_FILE}" || die "Bad password"
 
   # Need to remove unprotected config file no matter what
   trap remove_config INT
 
   # Reencrypt password store, overwriting old one
   echo "Enter new password..."
-  gpg --symmetric --yes "${CONFIG_FILE}"
+  gpg "${GPG_ARGS}" --symmetric --yes "${CONFIG_FILE}"
   remove_config || die "Bad password, keep old one for now..."
 }
 
@@ -158,7 +159,7 @@ init() {
   fi
 
   touch "${CONFIG_FILE}"
-  gpg --symmetric "${CONFIG_FILE}"
+  gpg "${GPG_ARGS}" --symmetric "${CONFIG_FILE}"
   if [ $? -ne 0 ]; then
     rm "${CONFIG_FILE}"
     die "Bad password"
