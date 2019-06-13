@@ -76,7 +76,7 @@ readpass() {
 
 
   echo "You have ${PASSWORD_TIME} seconds to use password"
-  eval "echo $pass | ${CLIPBOARD_COMMAND}"
+  eval "echo '${pass}' | ${CLIPBOARD_COMMAND}"
   (
     (
       sleep "${PASSWORD_TIME}"
