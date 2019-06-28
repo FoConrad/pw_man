@@ -36,15 +36,19 @@ Commands: init        - initialize pw_man for id <id>
 ## Installation 
 Remember to change `.bashrc` to match your shell's rc file.
 ### Option 1
+Sorry about the confusing quotes, but this should result in the correct quoting
+for the RC file.
 ```
 ~/.../pw_man$ cp pw_man.sh pw_man
 ~/.../pw_man$ chmod +x pw_man
-~/.../pw_man$ echo export PATH='"${PATH}':"$(pwd)"'"' >> .bashrc
+~/.../pw_man$ echo export PATH='"${PATH}':"$(pwd)"'"' >> ~/.bashrc
 ~/.../pw_man$ exec bash
 ```
 ### Option 2
+Alternatively, you can remove the underscore from the name to make easier to 
+type (e.g. alias pwman=...)
 ```
 ~/.../pw_man$ chmod +x pw_man.sh
-~/.../pw_man$ echo "alias pw_man=$(pwd)/pw_man.sh" >> .bashrc
+~/.../pw_man$ echo "alias pw_man=$(pwd)/pw_man.sh" >> ~/.bashrc
 ~/.../pw_man$ exec bash
 ```
